@@ -2,18 +2,27 @@ spring:
   application:
     name: msa-court-reservation-authentication
   datasource:
-    url: jdbc:postgresql://localhost:5432/usuarios_db
-    username: postgres
-    password: mysecretpassword
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:usuarios_db}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:mysecretpassword}
     driver-class-name: org.postgresql.Driver
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
+        default_schema: public
         format_sql: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    default-schema: public
+    schemas: public
+    baseline-on-migrate: true
+    baseline-version: 0
+    validate-on-migrate: true
 
 jwt:
   secret: replace-this-64-byte-minimum-jwt-secret-before-production-use-2026-auth

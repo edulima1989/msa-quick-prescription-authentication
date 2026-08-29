@@ -10,6 +10,7 @@ Servicio de autenticación y gestión de usuarios para el sistema de reserva de 
 - ✅ Sistema de roles: ADMIN y USUARIO_FINAL
 - ✅ Encriptación de contraseñas con BCrypt
 - ✅ Persistencia en PostgreSQL con JPA/Hibernate
+- ✅ Migraciones de base de datos con Flyway
 - ✅ Documentación con Swagger/OpenAPI
 
 ## Acceso a Swagger UI
@@ -146,14 +147,16 @@ Aquí puedes ver toda la documentación interactiva de los endpoints y probarlos
 ```yaml
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/court_reservation
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:usuarios_db}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:mysecretpassword}
 
 jwt:
   secret: your-secret-key-change-this-in-production
   expiration: 86400000  # 24 horas en ms
 ```
+
+En Docker, `DB_HOST` debe ser el nombre del servicio de PostgreSQL (por ejemplo `postgres`), no `localhost`.
 
 ## Autenticación
 
@@ -184,3 +187,19 @@ src/main/java/com/courtreservation/authentication/
 - JWT (JJWT 0.12.3)
 - PostgreSQL Driver
 - Lombok
+- Flyway
+
+## Usuarios de Prueba Cargados por Migración
+
+- **ADMIN**
+  - Email: `admin@courtreservation.com`
+  - Password: `Admin123*`
+- **USUARIO_FINAL**
+  - Email: `usuario.final@courtreservation.com`
+  - Password: `Usuario123*`
+- **USUARIO_FINAL 2**
+  - Email: `usuario.final2@courtreservation.com`
+  - Password: `Usuario123*`
+- **USUARIO_FINAL 3**
+  - Email: `usuario.final3@courtreservation.com`
+  - Password: `Usuario123*`

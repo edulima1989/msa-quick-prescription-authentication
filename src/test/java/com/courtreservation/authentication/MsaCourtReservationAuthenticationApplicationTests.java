@@ -1,5 +1,7 @@
 package com.courtreservation.authentication;
 
+import com.courtreservation.authentication.model.User;
+import com.courtreservation.authentication.repository.UserRepository;
 import com.courtreservation.authentication.security.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -7,13 +9,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.context.WebApplicationContext;
 
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup;
@@ -22,7 +33,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "app.flyway.force-on-startup=false",
+        "spring.flyway.enabled=false",
+        "spring.jpa.hibernate.ddl-auto=none",
+        "spring.jpa.properties.hibernate.boot.allow_jdbc_metadata_access=false",
+        "spring.datasource.hikari.initialization-fail-timeout=-1"
+})
 class MsaCourtReservationAuthenticationApplicationTests {
 
   @Autowired
@@ -33,11 +50,39 @@ class MsaCourtReservationAuthenticationApplicationTests {
   @Autowired
   private JwtTokenProvider jwtTokenProvider;
 
+  @MockitoBean
+  private UserRepository userRepository;
+
+  private final AtomicLong userIdSequence = new AtomicLong(1L);
+  private final Map<String, User> usersByMail = new ConcurrentHashMap<>();
+
   @BeforeEach
   void setUp() {
     mockMvc = webAppContextSetup(webApplicationContext)
             .apply(springSecurity())
             .build();
+
+    usersByMail.clear();
+    userIdSequence.set(1L);
+
+    when(userRepository.existsByUserMail(anyString()))
+            .thenAnswer(invocation -> usersByMail.containsKey(invocation.getArgument(0)));
+
+    when(userRepository.findByUserMail(anyString()))
+            .thenAnswer(invocation -> Optional.ofNullable(usersByMail.get(invocation.getArgument(0))));
+
+    when(userRepository.save(any(User.class)))
+            .thenAnswer(invocation -> {
+              User user = invocation.getArgument(0);
+              if (user.getUserId() == null) {
+                user.setUserId(userIdSequence.getAndIncrement());
+              }
+              usersByMail.put(user.getUserMail(), user);
+              return user;
+            });
+
+    when(userRepository.findAll())
+            .thenAnswer(invocation -> new ArrayList<>(usersByMail.values()));
   }
 
   @Test
