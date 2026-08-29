@@ -16,12 +16,14 @@ Servicio de autenticación y gestión de usuarios para el sistema de reserva de 
 ## Acceso a Swagger UI
 
 Una vez que la aplicación está corriendo, accede a:
-- **Swagger UI**: http://localhost:8080/swagger-ui.html
-- **OpenAPI JSON**: http://localhost:8080/v3/api-docs
+- **Swagger UI**: http://localhost:8082/users/swagger-ui.html
+- **OpenAPI JSON**: http://localhost:8082/users/v3/api-docs
 
 Aquí puedes ver toda la documentación interactiva de los endpoints y probarlos directamente.
 
 ## Endpoints
+
+Base path: `/users`
 
 ### 1. Registro de Usuario
 **POST** `/api/auth/register`
@@ -150,10 +152,14 @@ spring:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:usuarios_db}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:mysecretpassword}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    default-schema: public
 
 jwt:
-  secret: your-secret-key-change-this-in-production
-  expiration: 86400000  # 24 horas en ms
+  secret: replace-this-64-byte-minimum-jwt-secret-before-production-use-2026-auth
+  expiration: 86400000
 ```
 
 En Docker, `DB_HOST` debe ser el nombre del servicio de PostgreSQL (por ejemplo `postgres`), no `localhost`.
@@ -189,12 +195,22 @@ src/main/java/com/courtreservation/authentication/
 - Lombok
 - Flyway
 
+## Scripts de Base de Datos
+
+Los scripts de migración actuales del proyecto están en:
+- `src/main/resources/db/migration/V1__create_users_table.sql`
+- `src/main/resources/db/migration/V2__seed_default_users.sql`
+
+### Descripción
+- `V1__create_users_table.sql`: crea la estructura de la tabla `users`.
+- `V2__seed_default_users.sql`: inserta los usuarios iniciales de prueba.
+
 ## Usuarios de Prueba Cargados por Migración
 
 - **ADMIN**
   - Email: `admin@courtreservation.com`
   - Password: `Admin123*`
-- **USUARIO_FINAL**
+- **USUARIO_FINAL 1**
   - Email: `usuario.final@courtreservation.com`
   - Password: `Usuario123*`
 - **USUARIO_FINAL 2**
