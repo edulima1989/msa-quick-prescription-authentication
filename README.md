@@ -209,13 +209,13 @@ Los scripts de migración actuales del proyecto están en:
 
 - **ADMIN**
   - Email: `admin@courtreservation.com`
-  - Password: `Admin123*`
+
 - **USUARIO_FINAL 1**
   - Email: `usuario.final@courtreservation.com`
-  - Password: `Usuario123*`
+
 - **USUARIO_FINAL 2**
   - Email: `usuario.final2@courtreservation.com`
-  - Password: `Usuario123*`
+
 - **USUARIO_FINAL 3**
   - Email: `usuario.final3@courtreservation.com`
-  - Password: `Usuario123*`
+
