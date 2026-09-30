@@ -7,17 +7,14 @@ import com.quickprescription.authentication.model.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-import java.util.List;
-
 @Mapper(componentModel = "spring")
 public interface UserMapper {
 
     @Mapping(target = "userId", ignore = true)
+    @Mapping(target = "userRole", ignore = true)
     User toUser(RegisterRequest request);
 
     UserResponse toUserResponse(User user);
-
-    List<UserResponse> toUserResponses(List<User> users);
 
     @Mapping(target = "token", source = "token")
     @Mapping(target = "userId", source = "user.userId")

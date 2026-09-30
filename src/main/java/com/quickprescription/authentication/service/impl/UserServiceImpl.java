@@ -14,14 +14,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Set;
-
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
-    private static final Set<String> VALID_ROLES = Set.of("ADMIN", "USUARIO_FINAL");
+    private static final String DEFAULT_ROLE = "USUARIO_FINAL";
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -35,7 +32,7 @@ public class UserServiceImpl implements UserService {
 
         User user = userMapper.toUser(request);
         user.setUserPassword(passwordEncoder.encode(request.getUserPassword()));
-        user.setUserRole(resolveRole(request.getUserRole()));
+        user.setUserRole(DEFAULT_ROLE);
 
         User savedUser = userRepository.save(user);
         return userMapper.toUserResponse(savedUser);
@@ -68,65 +65,6 @@ public class UserServiceImpl implements UserService {
                 .userMail(jwtTokenProvider.extractUserMail(normalizedToken))
                 .userRole(jwtTokenProvider.extractUserRole(normalizedToken))
                 .build();
-    }
-
-    public UserResponse getUserById(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-        return userMapper.toUserResponse(user);
-    }
-
-    public List<UserResponse> getAllUsers() {
-        return userMapper.toUserResponses(userRepository.findAll());
-    }
-
-    public UserResponse updateUser(Long userId, RegisterRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-
-        if (request.getUserName() != null) {
-            user.setUserName(request.getUserName());
-        }
-        if (request.getUserPassword() != null) {
-            user.setUserPassword(passwordEncoder.encode(request.getUserPassword()));
-        }
-        if (request.getUserRole() != null) {
-            user.setUserRole(validateRole(request.getUserRole()));
-        }
-
-        User updatedUser = userRepository.save(user);
-        return userMapper.toUserResponse(updatedUser);
-    }
-
-    public void deleteUser(Long userId) {
-        if (!userRepository.existsById(userId)) {
-            throw new RuntimeException("Usuario no encontrado");
-        }
-        userRepository.deleteById(userId);
-    }
-
-    public UserResponse changeRole(Long userId, String newRole) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-
-        user.setUserRole(validateRole(newRole));
-        User updatedUser = userRepository.save(user);
-        return userMapper.toUserResponse(updatedUser);
-    }
-
-    private String resolveRole(String role) {
-        if (role == null || role.isBlank()) {
-            return "USUARIO_FINAL";
-        }
-        return validateRole(role);
-    }
-
-    private String validateRole(String role) {
-        String normalizedRole = role.trim().toUpperCase();
-        if (!VALID_ROLES.contains(normalizedRole)) {
-            throw new RuntimeException("Rol inválido. Debe ser ADMIN o USUARIO_FINAL");
-        }
-        return normalizedRole;
     }
 
     private String normalizeToken(String token) {

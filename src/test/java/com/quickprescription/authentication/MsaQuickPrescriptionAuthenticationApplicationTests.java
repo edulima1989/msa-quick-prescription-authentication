@@ -31,6 +31,8 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppC
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {
@@ -131,8 +133,7 @@ class MsaQuickPrescriptionAuthenticationApplicationTests {
                             {
                               "userName": "Test User",
                               "userMail": "%s",
-                              "userPassword": "password123",
-                              "userRole": "USUARIO_FINAL"
+                              "userPassword": "password123"
                             }
                             """.formatted(email)))
             .andExpect(status().isCreated());
@@ -189,12 +190,41 @@ class MsaQuickPrescriptionAuthenticationApplicationTests {
   }
 
   @Test
-  void allowsProtectedEndpointsWithValidJwt() throws Exception {
+  void ignoresUserRoleOnRegister() throws Exception {
+    String email = "admin-" + UUID.randomUUID() + "@example.com";
+
+    mockMvc.perform(post("/api/auth/register")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                              "userName": "Test User",
+                              "userMail": "%s",
+                              "userPassword": "password123",
+                              "userRole": "ADMIN"
+                            }
+                            """.formatted(email)))
+            .andExpect(status().isCreated());
+
+    assertEquals("USUARIO_FINAL", usersByMail.get(email).getUserRole());
+  }
+
+  @Test
+  void userManagementEndpointsNoLongerExist() throws Exception {
     String token = jwtTokenProvider.generateToken(99L, "secured@example.com", "ADMIN");
 
     mockMvc.perform(get("/api/auth/users")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-            .andExpect(status().isOk());
+            .andExpect(status().isNotFound());
+    mockMvc.perform(get("/api/auth/users/1")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+            .andExpect(status().isNotFound());
+    mockMvc.perform(put("/api/auth/users/1/role")
+                    .param("newRole", "ADMIN")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+            .andExpect(status().isNotFound());
+    mockMvc.perform(delete("/api/auth/users/1")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+            .andExpect(status().isNotFound());
   }
 
 }

@@ -18,7 +18,4 @@ public class RegisterRequest {
     
     @Schema(description = "Contraseña del usuario", example = "password123")
     private String userPassword;
-    
-    @Schema(description = "Rol del usuario (ADMIN o USUARIO_FINAL)", example = "USUARIO_FINAL")
-    private String userRole;
 }

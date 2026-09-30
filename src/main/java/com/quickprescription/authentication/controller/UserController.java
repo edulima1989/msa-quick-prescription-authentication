@@ -18,12 +18,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@Tag(name = "Authentication", description = "Endpoints de autenticación y gestión de usuarios")
+@Tag(name = "Authentication", description = "Endpoints de autenticación")
 public class UserController {
 
     private final UserService userService;
@@ -64,70 +62,6 @@ public class UserController {
     })
     public ResponseEntity<TokenValidationResponse> validateSessionToken(@RequestBody TokenValidationRequest request) {
         TokenValidationResponse response = userService.validateSessionToken(request.getToken());
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/users/{userId}")
-    @Operation(summary = "Obtener usuario por ID", description = "Recupera los datos de un usuario específico")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Usuario encontrado",
-                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Usuario no encontrado"),
-            @ApiResponse(responseCode = "500", description = "Error interno del servidor")
-    })
-    public ResponseEntity<UserResponse> getUserById(@PathVariable Long userId) {
-        UserResponse response = userService.getUserById(userId);
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/users")
-    @Operation(summary = "Obtener todos los usuarios", description = "Lista todos los usuarios registrados en el sistema")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Lista de usuarios",
-                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserResponse.class))),
-            @ApiResponse(responseCode = "500", description = "Error interno del servidor")
-    })
-    public ResponseEntity<List<UserResponse>> getAllUsers() {
-        List<UserResponse> users = userService.getAllUsers();
-        return ResponseEntity.ok(users);
-    }
-
-    @PutMapping("/users/{userId}")
-    @Operation(summary = "Actualizar usuario", description = "Actualiza los datos de un usuario (nombre, contraseña, rol)")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Usuario actualizado exitosamente",
-                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Usuario no encontrado"),
-            @ApiResponse(responseCode = "500", description = "Error interno del servidor")
-    })
-    public ResponseEntity<UserResponse> updateUser(@PathVariable Long userId, @RequestBody RegisterRequest request) {
-        UserResponse response = userService.updateUser(userId, request);
-        return ResponseEntity.ok(response);
-    }
-
-    @DeleteMapping("/users/{userId}")
-    @Operation(summary = "Eliminar usuario", description = "Elimina un usuario del sistema")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "204", description = "Usuario eliminado exitosamente"),
-            @ApiResponse(responseCode = "404", description = "Usuario no encontrado"),
-            @ApiResponse(responseCode = "500", description = "Error interno del servidor")
-    })
-    public ResponseEntity<Void> deleteUser(@PathVariable Long userId) {
-        userService.deleteUser(userId);
-        return ResponseEntity.noContent().build();
-    }
-
-    @PutMapping("/users/{userId}/role")
-    @Operation(summary = "Cambiar rol de usuario", description = "Cambia el rol de un usuario entre ADMIN y USUARIO_FINAL")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Rol actualizado exitosamente",
-                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Rol inválido"),
-            @ApiResponse(responseCode = "404", description = "Usuario no encontrado"),
-            @ApiResponse(responseCode = "500", description = "Error interno del servidor")
-    })
-    public ResponseEntity<UserResponse> changeUserRole(@PathVariable Long userId, @RequestParam String newRole) {
-        UserResponse response = userService.changeRole(userId, newRole);
         return ResponseEntity.ok(response);
     }
 }
