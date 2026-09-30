@@ -1,4 +1,4 @@
-# MSA Court Reservation - Authentication Service
+# MSA Quick Prescription - Authentication Service
 
 ## Descripción
 Servicio de autenticación y gestión de usuarios para el sistema de reserva de canchas. Incluye registro, login, gestión de roles (ADMIN / USUARIO_FINAL) y control de acceso mediante JWT.
@@ -177,7 +177,7 @@ Authorization: Bearer <token>
 
 ## Estructura del Proyecto
 ```
-src/main/java/com/courtreservation/authentication/
+src/main/java/com/quickprescription/authentication/
 ├── controller/     # UsuariosController - Endpoints REST
 ├── service/        # UsuariosService - Lógica de negocio
 ├── model/          # User - Entidad JPA
@@ -208,14 +208,14 @@ Los scripts de migración actuales del proyecto están en:
 ## Usuarios de Prueba Cargados por Migración
 
 - **ADMIN**
-  - Email: `admin@courtreservation.com`
+  - Email: `admin@quickprescription.com`
 
 - **USUARIO_FINAL 1**
-  - Email: `usuario.final@courtreservation.com`
+  - Email: `usuario.final@quickprescription.com`
 
 - **USUARIO_FINAL 2**
-  - Email: `usuario.final2@courtreservation.com`
+  - Email: `usuario.final2@quickprescription.com`
 
 - **USUARIO_FINAL 3**
-  - Email: `usuario.final3@courtreservation.com`
+  - Email: `usuario.final3@quickprescription.com`
 

@@ -1,6 +1,6 @@
 spring:
   application:
-    name: msa-court-reservation-authentication
+    name: msa-quick-prescription-authentication
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:usuarios_db}
     username: ${DB_USERNAME:postgres}
