@@ -1,10 +1,10 @@
 package com.quickprescription.authentication.service.impl;
 
 import com.quickprescription.authentication.dto.LoginRequest;
-import com.quickprescription.authentication.dto.LoginResponse;
 import com.quickprescription.authentication.dto.RegisterRequest;
+import com.quickprescription.authentication.dto.TokenResponse;
 import com.quickprescription.authentication.dto.TokenValidationResponse;
-import com.quickprescription.authentication.dto.UserResponse;
+import com.quickprescription.authentication.dto.UsuarioRegistrado;
 import com.quickprescription.authentication.exception.EmailAlreadyRegisteredException;
 import com.quickprescription.authentication.exception.InvalidCredentialsException;
 import com.quickprescription.authentication.mapper.UserMapper;
@@ -27,7 +27,7 @@ public class UserServiceImpl implements UserService {
     private final JwtTokenProvider jwtTokenProvider;
     private final UserMapper userMapper;
 
-    public UserResponse register(RegisterRequest request) {
+    public UsuarioRegistrado register(RegisterRequest request) {
         if (userRepository.existsByUserMailIgnoreCase(request.getUserMail())) {
             throw new EmailAlreadyRegisteredException();
         }
@@ -37,10 +37,10 @@ public class UserServiceImpl implements UserService {
         user.setUserRole(DEFAULT_ROLE);
 
         User savedUser = userRepository.save(user);
-        return userMapper.toUserResponse(savedUser);
+        return userMapper.toUsuarioRegistrado(savedUser);
     }
 
-    public LoginResponse login(LoginRequest request) {
+    public TokenResponse login(LoginRequest request) {
         User user = userRepository.findByUserMailIgnoreCase(request.getUserMail())
                 .orElseThrow(InvalidCredentialsException::new);
 
@@ -50,7 +50,7 @@ public class UserServiceImpl implements UserService {
 
         String token = jwtTokenProvider.generateToken(user.getUserId(), user.getUserMail(), user.getUserRole());
 
-        return userMapper.toLoginResponse(user, token);
+        return TokenResponse.bearer(token, jwtTokenProvider.getExpirationSeconds());
     }
 
     public TokenValidationResponse validateSessionToken(String token) {

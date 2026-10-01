@@ -4,6 +4,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -12,6 +13,8 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +32,22 @@ public class JwtTokenProvider {
     @Value("${jwt.expiration:86400000}")
     private long jwtExpirationMs;
 
+    private int expirationSeconds;
+
+    @PostConstruct
+    void initExpiration() {
+        long seconds = jwtExpirationMs / 1000;
+        if (seconds < 1 || seconds > Integer.MAX_VALUE) {
+            throw new IllegalStateException("jwt.expiration debe estar entre 1000 ms y " + Integer.MAX_VALUE + " s");
+        }
+        expirationSeconds = (int) seconds;
+    }
+
+    /** Vigencia del token en segundos (jwt.expiration / 1000); es el expiresIn del login. */
+    public int getExpirationSeconds() {
+        return expirationSeconds;
+    }
+
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
@@ -41,14 +60,15 @@ public class JwtTokenProvider {
     }
 
     private String createToken(Map<String, Object> claims, String subject) {
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
+        // iat y exp se guardan en segundos; se trunca para que exp - iat sea exactamente expiresIn.
+        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        Instant expiry = now.plusSeconds(expirationSeconds);
 
         return Jwts.builder()
                 .claims(claims)
                 .subject(subject)
-                .issuedAt(now)
-                .expiration(expiryDate)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(expiry))
                 .signWith(getSigningKey(), Jwts.SIG.HS512)
                 .compact();
     }

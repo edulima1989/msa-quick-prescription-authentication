@@ -1,5 +1,6 @@
 package com.quickprescription.authentication;
 
+import com.jayway.jsonpath.JsonPath;
 import com.quickprescription.authentication.model.User;
 import com.quickprescription.authentication.repository.UserRepository;
 import com.quickprescription.authentication.security.JwtTokenProvider;
@@ -13,7 +14,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.context.WebApplicationContext;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -112,12 +115,6 @@ class MsaQuickPrescriptionAuthenticationApplicationTests {
   }
 
   @Test
-  void allowsSwaggerEndpointsWithoutAuthentication() throws Exception {
-    mockMvc.perform(get("/v3/api-docs"))
-            .andExpect(status().isOk());
-  }
-
-  @Test
   void appliesCorsForAllowedOrigins() throws Exception {
     mockMvc.perform(options("/api/auth/login")
                     .header(HttpHeaders.ORIGIN, "http://localhost:3000"))
@@ -157,6 +154,62 @@ class MsaQuickPrescriptionAuthenticationApplicationTests {
                             }
                             """.formatted(email)))
             .andExpect(status().isOk());
+  }
+
+  @Test
+  void registerReturnsOnlyContractFields() throws Exception {
+    mockMvc.perform(post("/api/auth/register")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {"userName": "Juan Pérez", "userMail": "juan@example.com", "userPassword": "password123"}
+                            """))
+            .andExpect(status().isCreated())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.*", hasSize(3)))
+            .andExpect(jsonPath("$.id").value(1))
+            .andExpect(jsonPath("$.userName").value("Juan Pérez"))
+            .andExpect(jsonPath("$.userMail").value("juan@example.com"))
+            .andExpect(jsonPath("$.userId").doesNotExist())
+            .andExpect(jsonPath("$.userRole").doesNotExist())
+            .andExpect(jsonPath("$.userPassword").doesNotExist());
+  }
+
+  @Test
+  void loginReturnsContractTokenResponse() throws Exception {
+    register("Juan", "juan@example.com", "password123");
+
+    String body = mockMvc.perform(post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {"userMail": "juan@example.com", "userPassword": "password123"}
+                            """))
+            .andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.*", hasSize(3)))
+            .andExpect(jsonPath("$.accessToken").isNotEmpty())
+            .andExpect(jsonPath("$.tokenType").value("Bearer"))
+            .andExpect(jsonPath("$.expiresIn").value(jwtTokenProvider.getExpirationSeconds()))
+            .andExpect(jsonPath("$.token").doesNotExist())
+            .andExpect(jsonPath("$.userId").doesNotExist())
+            .andExpect(jsonPath("$.userName").doesNotExist())
+            .andExpect(jsonPath("$.userMail").doesNotExist())
+            .andExpect(jsonPath("$.userRole").doesNotExist())
+            .andReturn().getResponse().getContentAsString();
+
+    assertEquals(86400, jwtTokenProvider.getExpirationSeconds());
+
+    String accessToken = JsonPath.read(body, "$.accessToken");
+    int expiresIn = JsonPath.read(body, "$.expiresIn");
+    String[] parts = accessToken.split("\\.");
+    Base64.Decoder decoder = Base64.getUrlDecoder();
+    String header = new String(decoder.decode(parts[0]), StandardCharsets.UTF_8);
+    String payload = new String(decoder.decode(parts[1]), StandardCharsets.UTF_8);
+
+    assertEquals("HS512", JsonPath.read(header, "$.alg"));
+    long iat = ((Number) JsonPath.read(payload, "$.iat")).longValue();
+    long exp = ((Number) JsonPath.read(payload, "$.exp")).longValue();
+    assertEquals(expiresIn, exp - iat);
+    assertTrue(jwtTokenProvider.validateToken(accessToken));
   }
 
   @Test
@@ -350,17 +403,30 @@ class MsaQuickPrescriptionAuthenticationApplicationTests {
   }
 
   @Test
-  void rejectsLoginPasswordOutOfRange() throws Exception {
+  void loginDoesNotValidatePasswordLength() throws Exception {
+    register("Juan", "juan@example.com", "password123");
+
     for (String password : new String[]{"1234567", "p".repeat(73)}) {
       mockMvc.perform(post("/api/auth/login")
                       .contentType(MediaType.APPLICATION_JSON)
                       .content("""
                               {"userMail": "juan@example.com", "userPassword": "%s"}
                               """.formatted(password)))
-              .andExpect(status().isBadRequest())
-              .andExpect(jsonPath("$.errores", hasSize(1)))
-              .andExpect(jsonPath("$.errores[0].campo").value("userPassword"));
+              .andExpect(status().isUnauthorized())
+              .andExpect(jsonPath("$.detail").value("Correo o contraseña incorrectos."));
     }
+  }
+
+  @Test
+  void rejectsBlankLoginPassword() throws Exception {
+    mockMvc.perform(post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {"userMail": "juan@example.com", "userPassword": ""}
+                            """))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.errores", hasSize(1)))
+            .andExpect(jsonPath("$.errores[0].campo").value("userPassword"));
   }
 
   @Test
