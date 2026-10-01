@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,10 +32,14 @@ public class UserController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Usuario registrado exitosamente",
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Email ya registrado o datos inválidos"),
-            @ApiResponse(responseCode = "500", description = "Error interno del servidor")
+            @ApiResponse(responseCode = "400", description = "Datos inválidos",
+                    content = @Content(mediaType = "application/problem+json")),
+            @ApiResponse(responseCode = "409", description = "Correo ya registrado",
+                    content = @Content(mediaType = "application/problem+json")),
+            @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+                    content = @Content(mediaType = "application/problem+json"))
     })
-    public ResponseEntity<UserResponse> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
         UserResponse response = userService.register(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
@@ -44,11 +49,14 @@ public class UserController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Autenticación exitosa",
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = LoginResponse.class))),
-            @ApiResponse(responseCode = "401", description = "Credenciales inválidas"),
-            @ApiResponse(responseCode = "404", description = "Usuario no encontrado"),
-            @ApiResponse(responseCode = "500", description = "Error interno del servidor")
+            @ApiResponse(responseCode = "400", description = "Datos inválidos",
+                    content = @Content(mediaType = "application/problem+json")),
+            @ApiResponse(responseCode = "401", description = "Credenciales inválidas",
+                    content = @Content(mediaType = "application/problem+json")),
+            @ApiResponse(responseCode = "500", description = "Error interno del servidor",
+                    content = @Content(mediaType = "application/problem+json"))
     })
-    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         LoginResponse response = userService.login(request);
         return ResponseEntity.ok(response);
     }

@@ -5,6 +5,8 @@ import com.quickprescription.authentication.dto.LoginResponse;
 import com.quickprescription.authentication.dto.RegisterRequest;
 import com.quickprescription.authentication.dto.TokenValidationResponse;
 import com.quickprescription.authentication.dto.UserResponse;
+import com.quickprescription.authentication.exception.EmailAlreadyRegisteredException;
+import com.quickprescription.authentication.exception.InvalidCredentialsException;
 import com.quickprescription.authentication.mapper.UserMapper;
 import com.quickprescription.authentication.model.User;
 import com.quickprescription.authentication.repository.UserRepository;
@@ -26,8 +28,8 @@ public class UserServiceImpl implements UserService {
     private final UserMapper userMapper;
 
     public UserResponse register(RegisterRequest request) {
-        if (userRepository.existsByUserMail(request.getUserMail())) {
-            throw new RuntimeException("El email ya está registrado");
+        if (userRepository.existsByUserMailIgnoreCase(request.getUserMail())) {
+            throw new EmailAlreadyRegisteredException();
         }
 
         User user = userMapper.toUser(request);
@@ -39,11 +41,11 @@ public class UserServiceImpl implements UserService {
     }
 
     public LoginResponse login(LoginRequest request) {
-        User user = userRepository.findByUserMail(request.getUserMail())
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        User user = userRepository.findByUserMailIgnoreCase(request.getUserMail())
+                .orElseThrow(InvalidCredentialsException::new);
 
         if (!passwordEncoder.matches(request.getUserPassword(), user.getUserPassword())) {
-            throw new RuntimeException("Contraseña incorrecta");
+            throw new InvalidCredentialsException();
         }
 
         String token = jwtTokenProvider.generateToken(user.getUserId(), user.getUserMail(), user.getUserRole());

@@ -25,6 +25,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup;
@@ -67,11 +71,11 @@ class MsaQuickPrescriptionAuthenticationApplicationTests {
     usersByMail.clear();
     userIdSequence.set(1L);
 
-    when(userRepository.existsByUserMail(anyString()))
-            .thenAnswer(invocation -> usersByMail.containsKey(invocation.getArgument(0)));
+    when(userRepository.existsByUserMailIgnoreCase(anyString()))
+            .thenAnswer(invocation -> findIgnoreCase(invocation.getArgument(0)).isPresent());
 
-    when(userRepository.findByUserMail(anyString()))
-            .thenAnswer(invocation -> Optional.ofNullable(usersByMail.get(invocation.getArgument(0))));
+    when(userRepository.findByUserMailIgnoreCase(anyString()))
+            .thenAnswer(invocation -> findIgnoreCase(invocation.getArgument(0)));
 
     when(userRepository.save(any(User.class)))
             .thenAnswer(invocation -> {
@@ -85,6 +89,12 @@ class MsaQuickPrescriptionAuthenticationApplicationTests {
 
     when(userRepository.findAll())
             .thenAnswer(invocation -> new ArrayList<>(usersByMail.values()));
+  }
+
+  private Optional<User> findIgnoreCase(String mail) {
+    return usersByMail.values().stream()
+            .filter(user -> user.getUserMail().equalsIgnoreCase(mail))
+            .findFirst();
   }
 
   @Test
@@ -225,6 +235,162 @@ class MsaQuickPrescriptionAuthenticationApplicationTests {
     mockMvc.perform(delete("/api/auth/users/1")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
             .andExpect(status().isNotFound());
+  }
+
+
+  private void register(String name, String mail, String password) throws Exception {
+    mockMvc.perform(post("/api/auth/register")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {"userName": "%s", "userMail": "%s", "userPassword": "%s"}
+                            """.formatted(name, mail, password)))
+            .andExpect(status().isCreated());
+  }
+
+  @Test
+  void rejectsEmptyRegisterBodyWithFieldErrors() throws Exception {
+    mockMvc.perform(post("/api/auth/register")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.title").value("Solicitud inválida"))
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.instance").value("/api/auth/register"))
+            .andExpect(jsonPath("$.errores[*].campo", hasItem("userName")))
+            .andExpect(jsonPath("$.errores[*].campo", hasItem("userMail")))
+            .andExpect(jsonPath("$.errores[*].campo", hasItem("userPassword")));
+  }
+
+  @Test
+  void rejectsInvalidRegisterFields() throws Exception {
+    String[][] invalid = {
+            {"J", "ok@example.com", "password123", "userName"},
+            {"J".repeat(151), "ok@example.com", "password123", "userName"},
+            {"Juan", "x", "password123", "userMail"},
+            {"Juan", "a".repeat(60) + "@" + ("b".repeat(60) + ".").repeat(4) + "com", "password123", "userMail"},
+            {"Juan", "ok@example.com", "1234567", "userPassword"},
+            {"Juan", "ok@example.com", "p".repeat(73), "userPassword"},
+    };
+    for (String[] c : invalid) {
+      mockMvc.perform(post("/api/auth/register")
+                      .contentType(MediaType.APPLICATION_JSON)
+                      .content("""
+                              {"userName": "%s", "userMail": "%s", "userPassword": "%s"}
+                              """.formatted(c[0], c[1], c[2])))
+              .andExpect(status().isBadRequest())
+              .andExpect(jsonPath("$.errores", hasSize(1)))
+              .andExpect(jsonPath("$.errores[0].campo").value(c[3]))
+              .andExpect(jsonPath("$.errores[0].mensaje").isNotEmpty());
+    }
+  }
+
+  @Test
+  void rejectsMalformedJsonWithoutEchoingIt() throws Exception {
+    mockMvc.perform(post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"userMail\": \"secreto@example.com\", "))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(result -> assertTrue(!result.getResponse().getContentAsString().contains("secreto")));
+  }
+
+  @Test
+  void rejectsDuplicateMailIgnoringCase() throws Exception {
+    register("Juan", "Juan@Example.com", "password123");
+
+    mockMvc.perform(post("/api/auth/register")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {"userName": "Otro", "userMail": "juan@example.com", "userPassword": "password123"}
+                            """))
+            .andExpect(status().isConflict())
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.title").value("Conflicto"))
+            .andExpect(jsonPath("$.status").value(409))
+            .andExpect(jsonPath("$.detail").value("Ya existe un consumidor registrado con ese correo."));
+  }
+
+  @Test
+  void loginIgnoresMailCase() throws Exception {
+    register("Juan", "Juan@Example.com", "password123");
+
+    mockMvc.perform(post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {"userMail": "juan@example.com", "userPassword": "password123"}
+                            """))
+            .andExpect(status().isOk());
+  }
+
+  @Test
+  void returnsSameUnauthorizedForUnknownMailAndWrongPassword() throws Exception {
+    register("Juan", "juan@example.com", "password123");
+
+    String unknownMail = mockMvc.perform(post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {"userMail": "nadie@example.com", "userPassword": "password123"}
+                            """))
+            .andExpect(status().isUnauthorized())
+            .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, "Bearer"))
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+            .andReturn().getResponse().getContentAsString();
+
+    String wrongPassword = mockMvc.perform(post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {"userMail": "juan@example.com", "userPassword": "incorrecta"}
+                            """))
+            .andExpect(status().isUnauthorized())
+            .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, "Bearer"))
+            .andReturn().getResponse().getContentAsString();
+
+    assertEquals(unknownMail, wrongPassword);
+  }
+
+  @Test
+  void rejectsLoginPasswordOutOfRange() throws Exception {
+    for (String password : new String[]{"1234567", "p".repeat(73)}) {
+      mockMvc.perform(post("/api/auth/login")
+                      .contentType(MediaType.APPLICATION_JSON)
+                      .content("""
+                              {"userMail": "juan@example.com", "userPassword": "%s"}
+                              """.formatted(password)))
+              .andExpect(status().isBadRequest())
+              .andExpect(jsonPath("$.errores", hasSize(1)))
+              .andExpect(jsonPath("$.errores[0].campo").value("userPassword"));
+    }
+  }
+
+  @Test
+  void rejectsInvalidLoginFields() throws Exception {
+    mockMvc.perform(post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {"userMail": "x"}
+                            """))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.errores", hasSize(2)))
+            .andExpect(jsonPath("$.errores[*].campo", hasItem("userMail")))
+            .andExpect(jsonPath("$.errores[*].campo", hasItem("userPassword")));
+  }
+
+  @Test
+  void returnsGenericInternalErrorWithoutDetails() throws Exception {
+    when(userRepository.save(any(User.class))).thenThrow(new IllegalStateException("detalle interno secreto"));
+
+    mockMvc.perform(post("/api/auth/register")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {"userName": "Juan", "userMail": "juan@example.com", "userPassword": "password123"}
+                            """))
+            .andExpect(status().isInternalServerError())
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.title").value("Error interno"))
+            .andExpect(jsonPath("$.detail").value("Ocurrió un error inesperado. Intente nuevamente más tarde."))
+            .andExpect(result -> assertTrue(!result.getResponse().getContentAsString().contains("secreto")))
+            .andExpect(result -> assertTrue(!result.getResponse().getContentAsString().contains("Exception")));
   }
 
 }
