@@ -13,6 +13,7 @@ import com.quickprescription.authentication.repository.UserRepository;
 import com.quickprescription.authentication.security.JwtTokenProvider;
 import com.quickprescription.authentication.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -36,7 +37,13 @@ public class UserServiceImpl implements UserService {
         user.setUserPassword(passwordEncoder.encode(request.getUserPassword()));
         user.setUserRole(DEFAULT_ROLE);
 
-        User savedUser = userRepository.save(user);
+        User savedUser;
+        try {
+            savedUser = userRepository.save(user);
+        } catch (DataIntegrityViolationException e) {
+            // Registro simultáneo con el mismo correo: lo frena el índice único sobre lower(user_mail).
+            throw new EmailAlreadyRegisteredException();
+        }
         return userMapper.toUsuarioRegistrado(savedUser);
     }
 

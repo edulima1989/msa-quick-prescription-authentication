@@ -6,6 +6,7 @@ import com.quickprescription.authentication.repository.UserRepository;
 import com.quickprescription.authentication.security.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -360,6 +361,22 @@ class MsaQuickPrescriptionAuthenticationApplicationTests {
             .andExpect(status().isConflict())
             .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(jsonPath("$.title").value("Conflicto"))
+            .andExpect(jsonPath("$.status").value(409))
+            .andExpect(jsonPath("$.detail").value("Ya existe un consumidor registrado con ese correo."));
+  }
+
+  @Test
+  void returnsConflictWhenUniqueIndexRejectsConcurrentRegistration() throws Exception {
+    when(userRepository.save(any(User.class)))
+            .thenThrow(new DataIntegrityViolationException("ux_users_user_mail_lower"));
+
+    mockMvc.perform(post("/api/auth/register")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {"userName": "Juan", "userMail": "juan@example.com", "userPassword": "password123"}
+                            """))
+            .andExpect(status().isConflict())
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(jsonPath("$.status").value(409))
             .andExpect(jsonPath("$.detail").value("Ya existe un consumidor registrado con ese correo."));
   }
