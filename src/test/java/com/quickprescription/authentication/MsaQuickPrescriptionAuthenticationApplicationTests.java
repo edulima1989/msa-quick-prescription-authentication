@@ -116,19 +116,13 @@ class MsaQuickPrescriptionAuthenticationApplicationTests {
   }
 
   @Test
-  void appliesCorsForAllowedOrigins() throws Exception {
+  void doesNotEmitCorsHeaders() throws Exception {
+    // El CORS está centralizado en el API Gateway; el Auth Service ya no emite Access-Control-Allow-Origin.
     mockMvc.perform(options("/api/auth/login")
-                    .header(HttpHeaders.ORIGIN, "http://localhost:3000"))
-            .andExpect(status().isOk())
-            .andExpect(result -> assertEquals("http://localhost:3000",
+                    .header(HttpHeaders.ORIGIN, "http://localhost:3000")
+                    .header("Access-Control-Request-Method", "POST"))
+            .andExpect(result -> assertEquals(null,
                     result.getResponse().getHeader("Access-Control-Allow-Origin")));
-  }
-
-  @Test
-  void rejectsCorsForDisallowedOrigins() throws Exception {
-    mockMvc.perform(options("/api/auth/login")
-                    .header(HttpHeaders.ORIGIN, "http://evil.example"))
-            .andExpect(status().isForbidden());
   }
 
   @Test
